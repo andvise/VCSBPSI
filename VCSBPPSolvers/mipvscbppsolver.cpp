@@ -4,18 +4,14 @@ MIPVSCBPPSolver::MIPVSCBPPSolver()
 {
 
 }
-MIPVSCBPPSolver::MIPVSCBPPSolver(int newSmallBinVolume,int newMediumBinVolume, int newLargeBinVolume)
+MIPVSCBPPSolver::MIPVSCBPPSolver(double newTimeLimit)
 {
-    this->smallBinVolume = newSmallBinVolume;
-    this->mediumBinVolume = newMediumBinVolume;
-    this->largeBinVolume = newLargeBinVolume;
-
+    timeLimit = newTimeLimit;
 }
 
 void MIPVSCBPPSolver::setTimeLimit(double newTimeLimit)
 {
-    this->timeLimit = newTimeLimit;
-
+    timeLimit = newTimeLimit;
 }
 
 binSet MIPVSCBPPSolver::solveModel(std::vector<item> items, std::vector<bin> bins)

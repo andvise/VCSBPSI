@@ -8,7 +8,7 @@ class MIPVSCBPPSolver : public VCSBPPSolver
 private:
     double timeLimit;
 public:
-    MIPVSCBPPSolver(int newSmallBinVolume,int newMediumBinVolume, int newLargeBinVolume);
+    MIPVSCBPPSolver(double newTimeLimit);
     MIPVSCBPPSolver();
     void setTimeLimit(double newTimeLimit);
 

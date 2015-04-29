@@ -3,6 +3,7 @@
 
 #include "vcsbpsibooker.h"
 #include "gurobi_c++.h"
+#include "VCSBPPSolvers/mipvscbppsolver.h"
 
 class EVPBooker: public VCSBPSIBooker
 {
@@ -10,6 +11,7 @@ private:
     double timeLimit;
     std::vector <item> averageItemSet;
     int scenarioNr;
+    MIPVSCBPPSolver *solver;    
 public:
     EVPBooker();
 

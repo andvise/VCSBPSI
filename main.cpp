@@ -16,14 +16,14 @@
 #include <algorithm>
 #include <unistd.h>
 #include "include/structDef.h"
-#include "include/EBM.h"
+#include "include/binutility.h"
 #include "VCSBPPSolvers/abdf.h"
 #include "VCSBPPSolvers/mipvscbppsolver.h"
 #include "VCSBPSIBookers/tspbooker.h"
 #include "VCSBPPSolvers/vcsbppsolver.h"
 #include "VCSBPSIBookers/mppbooker.h"
-#include "include/binutility.h"
 #include "VCSBPSIBookers/averagebooker.h"
+#include "VCSBPSIBookers/evpbooker.h"
 
 using namespace std;
 
@@ -66,7 +66,9 @@ float MAXLIMITAVERAGE = 0.7;   //maximum value of an EBM position for being a va
 ofstream inputWriter;
 ofstream gurobiData;
 
-
+bool useMPPBDF = false, useMPPMIP = false, useTSP = false, useAV = false, useEVP = false;
+bool solveBDF = false, solveMIP = false;
+bool matrixReadyMPPBDF = false, matrixReadyMPPMIP = false;
 
 struct binCompCheap {
     bool operator() (const bin& i, const bin& j) const {
@@ -77,7 +79,48 @@ struct binCompCheap {
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
+    for (int i = 0; i < argc; i++)
+    {
+        if ((string)argv[i] == "-mppbdf")
+        {
+            useMPPBDF = true;
+            cout <<"MPP with A-BDF will be used as booker.\n" ;
+        }
+        if ((string)argv[i] == "-mppmip")
+        {
+            useMPPMIP = true;
+            cout <<"MPP with MIP will be used as booker.\n" ;
+        }
 
+        if ((string)argv[i] == "-tsp")
+        {
+            useTSP = true;
+            cout <<"2SP will be used as booker.\n" ;
+        }
+        if ((string)argv[i] == "-av")
+        {
+            useAV = true;
+            cout <<"AV will be used as booker.\n" ;
+        }
+        if ((string)argv[i] == "-evp")
+        {
+            useEVP = true;
+            cout <<"EVP will be used as booker.\n" ;
+        }
+        if ((string)argv[i] == "-bdf")
+        {
+            solveBDF = true;
+            solveMIP = false;
+            cout <<"The VCSBPP solver is A-BDF.\n" ;
+        }
+        if ((string)argv[i] == "-mip")
+        {
+            solveBDF = false;
+            solveMIP = true;
+            cout <<"The VCSBPP solver is MIP.\n" ;
+        }
+        
+    }
     //initialization time for rand
     srand(time(NULL));
 
@@ -86,6 +129,7 @@ int main(int argc, char *argv[])
     binUt->setItemVolumes(SMALLITEMMINVOLUME,SMALLITEMMAXVOLUME,MEDIUMITEMMINVOLUME,MEDIUMITEMMAXVOLUME,LARGEITEMMINVOLUME,LARGEITEMMAXVOLUME);
     binUt->setAlpha(ALPHAINCREMENT);
 
+    //bin comparator
     bool commandOutput = true;
     struct binCostComparator {
         bool operator() (const bin& i, const bin& j) const {
@@ -93,6 +137,7 @@ int main(int argc, char *argv[])
         }
     } binCostComp;
 
+    //initialization of the structures that will collect bookers and the statistics
     vector<VCSBPSIBooker*> bookers;
     vector<string> bookerNames;
     vector<binSet> extraSets;
@@ -133,20 +178,19 @@ int main(int argc, char *argv[])
         scenarioItemSets.push_back(binUt->itemsInstanceGenerator(ITEMSMIN, ITEMSMAX, SMALLITEMPERC, MEDIUMITEMPERC, LARGEBINPERC));
         scenarioBinSets.push_back(binUt->binsBookerApplicator(emptySet, binUt->binsInstanceGenerator(averageVolume, SMALLBINVOLUME), binUt->binsInstanceGenerator(averageVolume, MEDIUMBINVOLUME), binUt->binsInstanceGenerator(averageVolume, LARGEBINVOLUME)));
     }
-
+    VCSBPPSolver *VCSBPP;
     //intialization VCSBPP solvers
-#if BDFORGUROBI
-    if (commandOutput) cout <<"Initialization of A-BDF, the VCSBPP solver...\n" ;
-
-    ABDF *VCSBPP = new ABDF();
-    VCSBPP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-#else
-    if (commandOutput) cout <<"Initialization of MIP VCSBPP solver...\n" ;
-    MIPVSCBPPSolver *VCSBPP = new MIPVSCBPPSolver();
-    VCSBPP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-    VCSBPP->setTimeLimit(3.0);
-#endif
-
+    if (solveBDF)
+    {
+        if (commandOutput) cout <<"Initialization of A-BDF, the VCSBPP solver...\n" ;
+        VCSBPP = new ABDF();
+        VCSBPP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+    }else
+    {
+        if (commandOutput) cout <<"Initialization of MIP VCSBPP solver...\n" ;
+        VCSBPP = new MIPVSCBPPSolver(3.0);
+        VCSBPP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+    }
 
     smallBins = binUt->binsInstanceGenerator(averageVolume, SMALLBINVOLUME);
     mediumBins = binUt->binsInstanceGenerator(averageVolume, MEDIUMBINVOLUME);
@@ -155,101 +199,121 @@ int main(int argc, char *argv[])
 //initialization Booker
 
     //MPP A-BDF
-    if (commandOutput) cout <<"Initialization of MPP A-BDF booker...\n" ;
-#if BDFORGUROBITRAIN
-    VCSBPPSolver *trainingSolver = new ABDF();
-#else
-    VCSBPPSolver *trainingSolver = new MIPVSCBPPSolver();
-    trainingSolver->setTimeLimit(5.0);
-#endif
-    trainingSolver->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-
-    MPPBooker *mppSolverABDF = new MPPBooker(smallBins.size(),mediumBins.size(),largeBins.size());
-    mppSolverABDF->setVCSBPPSolver(trainingSolver);
-    mppSolverABDF->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-    mppSolverABDF->setAlpha(ALPHAINCREMENT);
-
-    if (MATRIXREADY)
+    if(useMPPBDF)
     {
-        if (commandOutput) cout <<"Using the EBM matrix in file X...\n" ;
+        if (commandOutput) cout <<"Initialization of MPP A-BDF booker...\n" ;
+        VCSBPPSolver *trainingSolver = new ABDF();
+        trainingSolver->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        MPPBooker *mppSolverABDF = new MPPBooker(smallBins.size(),mediumBins.size(),largeBins.size());
+        mppSolverABDF->setVCSBPPSolver(trainingSolver);
+        mppSolverABDF->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        mppSolverABDF->setAlpha(ALPHAINCREMENT);
 
-    }else
-    {
-        if (commandOutput) cout << "Training of th EBM matrix...\n" ;
-        mppSolverABDF->training(scenarioBinSets,scenarioItemSets);
+        if (matrixReadyMPPBDF)
+        {
+            if (commandOutput) cout <<"Using the EBM matrix in file X...\n" ;
+
+        }else
+        {
+            if (commandOutput) cout << "Training of th EBM matrix...\n" ;
+            mppSolverABDF->training(scenarioBinSets,scenarioItemSets);
+
+        }
+        bookers.push_back(mppSolverABDF);
+        bookerNames.push_back("MPP-B");
+        bookedSets.push_back(emptySet);
+        extraSets.push_back(emptySet);
+        totExtraBins.push_back(emptySet);
+        totalCost.push_back(0);
+        singleCost.push_back(0);
+
+        if (commandOutput) cout << "Training of th EBM matrix complete!\n" ;
 
     }
-    bookers.push_back(mppSolverABDF);
-    bookerNames.push_back("MPP-B");
-    bookedSets.push_back(emptySet);
-    extraSets.push_back(emptySet);
-    totExtraBins.push_back(emptySet);
-    totalCost.push_back(0);
-    singleCost.push_back(0);
-
-    if (commandOutput) cout << "Training of th EBM matrix complete!\n" ;
-
 
     //MPP MIP
-    if (commandOutput) cout <<"Initialization of MPP MIP booker...\n" ;
-    MIPVSCBPPSolver *trainingSolverMIP = new MIPVSCBPPSolver();
-    trainingSolverMIP->setTimeLimit(2.0);
-    trainingSolverMIP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+    if(useMPPMIP)
+        {
+        if (commandOutput) cout <<"Initialization of MPP MIP booker...\n" ;
+        MIPVSCBPPSolver *trainingSolverMIP = new MIPVSCBPPSolver();
+        trainingSolverMIP->setTimeLimit(2.0);
+        trainingSolverMIP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
 
-    MPPBooker *mppSolverMIP = new MPPBooker(smallBins.size(),mediumBins.size(),largeBins.size());
-    mppSolverMIP->setVCSBPPSolver(trainingSolverMIP);
-    mppSolverMIP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-    mppSolverMIP->setAlpha(ALPHAINCREMENT);
+        MPPBooker *mppSolverMIP = new MPPBooker(smallBins.size(),mediumBins.size(),largeBins.size());
+        mppSolverMIP->setVCSBPPSolver(trainingSolverMIP);
+        mppSolverMIP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        mppSolverMIP->setAlpha(ALPHAINCREMENT);
 
-    if (MATRIXREADY)
-    {
-        if (commandOutput) cout <<"Using the EBM matrix in file X...\n" ;
+        if (matrixReadyMPPMIP)
+        {
+            if (commandOutput) cout <<"Using the EBM matrix in file X...\n" ;
 
-    }else
-    {
-        if (commandOutput) cout << "Training of th EBM matrix...\n" ;
-        mppSolverMIP->training(scenarioBinSets,scenarioItemSets);
+        }else
+        {
+            if (commandOutput) cout << "Training of th EBM matrix...\n" ;
+            mppSolverMIP->training(scenarioBinSets,scenarioItemSets);
 
+        }
+        bookers.push_back(mppSolverMIP);
+        bookerNames.push_back("MPP-M");
+        bookedSets.push_back(emptySet);
+        extraSets.push_back(emptySet);
+        totExtraBins.push_back(emptySet);
+        totalCost.push_back(0);
+        singleCost.push_back(0);
+        if (commandOutput) cout << "Training of th EBM matrix complete!\n" ;
     }
-    bookers.push_back(mppSolverMIP);
-    bookerNames.push_back("MPP-M");
-    bookedSets.push_back(emptySet);
-    extraSets.push_back(emptySet);
-    totExtraBins.push_back(emptySet);
-    totalCost.push_back(0);
-    singleCost.push_back(0);
-
-    if (commandOutput) cout << "Training of th EBM matrix complete!\n" ;
 
     //2SP
-    if (commandOutput) cout <<"Initialization of 2SP boker...\n" ;
-    TSPBooker *stochasticBooker = new TSPBooker();
-    stochasticBooker->setAlpha(ALPHAINCREMENT);
-    stochasticBooker->setTimeLimit(20.0);
-    stochasticBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-    stochasticBooker->setScenarios(scenarioItemSets);
-    bookers.push_back(stochasticBooker);
-    bookerNames.push_back("2SP");
-    bookedSets.push_back(emptySet);
-    extraSets.push_back(emptySet);
-    totExtraBins.push_back(emptySet);
-    totalCost.push_back(0);
-    singleCost.push_back(0);
-
+    if (useTSP)
+        {
+        if (commandOutput) cout <<"Initialization of 2SP boker...\n" ;
+        TSPBooker *stochasticBooker = new TSPBooker();
+        stochasticBooker->setAlpha(ALPHAINCREMENT);
+        stochasticBooker->setTimeLimit(20.0);
+        stochasticBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        stochasticBooker->setScenarios(scenarioItemSets);
+        bookers.push_back(stochasticBooker);
+        bookerNames.push_back("2SP");
+        bookedSets.push_back(emptySet);
+        extraSets.push_back(emptySet);
+        totExtraBins.push_back(emptySet);
+        totalCost.push_back(0);
+        singleCost.push_back(0);
+    }
 
     //average
-    if (commandOutput) cout <<"Initialization of average boker...\n" ;
-    AverageBooker *avBooker = new AverageBooker();
-    avBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-    avBooker->setScenarios(scenarioItemSets);
-    bookers.push_back(avBooker);
-    bookerNames.push_back("AVG");
-    bookedSets.push_back(emptySet);
-    extraSets.push_back(emptySet);
-    totExtraBins.push_back(emptySet);
-    totalCost.push_back(0);
-    singleCost.push_back(0);
+    if(useAV)
+        {
+        if (commandOutput) cout <<"Initialization of average boker...\n" ;
+        AverageBooker *avBooker = new AverageBooker();
+        avBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        avBooker->setScenarios(scenarioItemSets);
+        bookers.push_back(avBooker);
+        bookerNames.push_back("AVG");
+        bookedSets.push_back(emptySet);
+        extraSets.push_back(emptySet);
+        totExtraBins.push_back(emptySet);
+        totalCost.push_back(0);
+        singleCost.push_back(0);
+    }
 
+    //EVG
+    if(useEVP)
+        {
+        if (commandOutput) cout <<"Initialization of EVP boker...\n" ;
+        EVPBooker *evpSolution = new EVPBooker();
+        evpSolution->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        evpSolution->setScenarios(scenarioItemSets);
+        evpSolution->setTimeLimit(10.0);
+        bookers.push_back(evpSolution);
+        bookerNames.push_back("EVP");
+        bookedSets.push_back(emptySet);
+        extraSets.push_back(emptySet);
+        totExtraBins.push_back(emptySet);
+        totalCost.push_back(0);
+        singleCost.push_back(0);
+    }
 
     //**************************************TEST PHASE*************************************************************//
     if (commandOutput) cout <<"\nStart the comparations. \n" ;
