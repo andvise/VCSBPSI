@@ -43,6 +43,7 @@ void EVPBooker::setScenarios(vector< vector <item> > newScenarioItems)
 
 binSet EVPBooker::bookBins(std::vector<bin> bins)
 {
+    /*
     GRBEnv env = GRBEnv();
     GRBModel model = GRBModel(env);
     const int binSize = bins.size();
@@ -135,5 +136,5 @@ binSet EVPBooker::bookBins(std::vector<bin> bins)
         }
     }
     //inputWriter << model.get(GRB_DoubleAttr_MIPGap) <<"\t";
-    return output;
+    return output;*/
 }

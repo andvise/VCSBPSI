@@ -1,5 +1,5 @@
-#include "binutility.h"
-
+#include "include/binutility.h"
+#include <iostream>
 using namespace std;
 
 BinUtility::BinUtility()

@@ -2,8 +2,8 @@
 #define MPPBOOKER_H
 #include"include/EBM.h"
 #include <vector>
-#include "vcsbppsolver.h"
-#include "vcsbpsibooker.h"
+#include "VCSBPPSolvers/vcsbppsolver.h"
+#include "VCSBPSIBookers/vcsbpsibooker.h"
 #include <fstream>
 #include <cstring>
 #include <iomanip>      // std::setfill, std::setw
@@ -31,7 +31,7 @@ public:
     binSet bookBins(vector<bin> bins);
     void setVCSBPPSolver(VCSBPPSolver* newSolver);
     void lazyEvaluation(int i, int j, int k, int s, int m, int l);
-    void training(vector<vector<bin>> scenarioBins,vector<vector<item>> scenarioItems);
+    void training(vector<vector<bin> > scenarioBins,vector<vector<item> > scenarioItems);
 
 
 };

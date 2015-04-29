@@ -8,7 +8,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <time.h>
-#include "include/structDef.h"
 #include <cstring>
 #include <iomanip>
 #include <limits>
@@ -16,15 +15,15 @@
 #include <stdlib.h>
 #include <algorithm>
 #include <unistd.h>
+#include "include/structDef.h"
 #include "include/EBM.h"
-#include "abdf.h"
-#include "mipvscbppsolver.h"
-#include "tspbooker.h"
-#include "vcsbppsolver.h"
-#include "mppbooker.h"
-#include "binutility.cpp"
-#include "binutility.h"
-#include "averagebooker.h"
+#include "VCSBPPSolvers/abdf.h"
+#include "VCSBPPSolvers/mipvscbppsolver.h"
+#include "VCSBPSIBookers/tspbooker.h"
+#include "VCSBPPSolvers/vcsbppsolver.h"
+#include "VCSBPSIBookers/mppbooker.h"
+#include "include/binutility.h"
+#include "VCSBPSIBookers/averagebooker.h"
 
 using namespace std;
 

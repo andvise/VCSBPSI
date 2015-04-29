@@ -2,8 +2,8 @@
 #define VCSBPSIBOOKER_H
 #include "include/structDef.h"
 #include <vector>
-#include "binutility.h"
-#include "vcsbpsibooker.h"
+#include "include/binutility.h"
+#include "VCSBPSIBookers/vcsbpsibooker.h"
 
 
 class VCSBPSIBooker

@@ -33,19 +33,19 @@ MPPBooker::MPPBooker(int newSmallBinsNr, int newMediumBinsNr, int newLargeBinsNr
 
 
 }
-void MPPBooker::training(vector<vector<bin>> scenarioBins, vector<vector<item>> scenarioItems)
+void MPPBooker::training(vector<vector<bin> > scenarioBins, vector<vector<item> > scenarioItems)
 {
     trainingScenarioNr = scenarioItems.size();
-    for(int a = 0; a < scenarioNr; a++)
+    for(int a = 0; a < trainingScenarioNr; a++)
     {
         for (int b = 0; b < scenarioItems.at(a).size(); b++)
             averageVolume += scenarioItems.at(a).at(b).weight;
     }
 
-    averageVolume/=scenarioNr;
+    averageVolume/=trainingScenarioNr;
     cout << "Training on scenario:" ;
 
-    for (int i = 0; i < scenarioNr; i++)
+    for (int i = 0; i < trainingScenarioNr; i++)
     {
         cout << i +1 << "\t" ;
         trainingScenario(scenarioBins.at(i),scenarioItems.at(i));
