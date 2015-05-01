@@ -1,0 +1,66 @@
+**************************** COMMAND LINE CONFIG ****************************
+
+		//BOOKERS\\
+-mppbdf
+	enable the MPP booker trained with A-BDF algorithm
+
+-mppmip
+	enable the MPP booker trained with MIP algorithm
+
+-tsp "timeLimit"
+	enable the 2SP booker
+	"timeLimit" = time limit to set in the MIP solver for each instance
+
+-av "percentageVolume"
+	enable the AV booker 
+	"percentageVolume" = percentage of the average volume to book
+
+
+        if ((string)argv[i] == "-tsp")
+        {
+            useTSP = true;
+            cout <<"2SP will be used as booker.\n" ;
+        }
+        if ((string)argv[i] == "-av")
+        {
+            useAV = true;
+            cout <<"AV will be used as booker.\n" ;
+        }
+        if ((string)argv[i] == "-evp")
+        {
+            useEVP = true;
+            cout <<"EVP will be used as booker.\n" ;
+        }
+        if ((string)argv[i] == "-bdf")
+        {
+            solveBDF = true;
+            solveMIP = false;
+            cout <<"The VCSBPP solver is A-BDF.\n" ;
+        }
+        if ((string)argv[i] == "-mip")
+        {
+            solveBDF = false;
+            solveMIP = true;
+            cout <<"The VCSBPP solver is MIP.\n" ;
+        }
+        if ((string)argv[i] == "-snr")
+        {
+            scenarioNr = atoi(argv[++i]);
+            cout <<"Number of the training scenarios = " << scenarioNr <<".\n" ;
+        }
+        if ((string)argv[i] == "-tnr")
+        {
+            testNr = atoi(argv[++i]);
+            cout <<"Number of the test intances = " << scenarioNr <<".\n" ;
+        }
+        if ((string)argv[i] == "-alp")
+        {
+            alphaIncrement = atof(argv[++i]);
+            cout <<"Alpha value = " << alphaIncrement <<".\n" ;
+        }
+        if ((string)argv[i] == "-itnr")
+        {
+            itemMinNr = atoi(argv[++i]);
+            itemMaxNr = atoi(argv[++i]);
+            cout <<"Dimension of itemset in [" << itemMinNr << ";" << itemMaxNr <<"].\n" ;
+        }

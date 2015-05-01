@@ -3,6 +3,7 @@
 #include <sstream>
 #include <fstream>
 #include <string>
+#include <cstdlib>
 #include <vector>
 #include <algorithm>
 #include <math.h>
@@ -39,46 +40,43 @@ using namespace std;
 #define LARGEBINVOLUME 90
 
 
-int ITEMSMIN = 40;        //size of the problem
-int ITEMSMAX = 50;
-#define LOWERBOUNDEBM 0.7   //lower bound to evaluate the EBM position
-float ALPHAINCREMENT = 1.3;  //alpha increment of the bins cost
-float MAXLIMITAVERAGE = 0.7;   //maximum value of an EBM position for being a valid solution for the second phase
-#define SMALLITEMPERC 30     //various percentage of the items
-#define MEDIUMITEMPERC 40
-#define LARGEBINPERC 30
-
-
-#define MATRIXREADY false
-#define STOCHASTICSCENARIONR 25
-#define AVERAGESCENARIONR 50
-#define TRAINNR 25
-#define TESTNR 10
-
 #define PERCVOLUME 0.85
 
-#define BDFORGUROBI false
-#define BDFORGUROBITRAIN true
-#define USESTHOCASTIC true
-#define NOLAZYCOMPARE false
 
+//Problem definition
+int itemMinNr = 25;        //size of the problem
+int itemMaxNr = 50;
+int smallItemPerc = 30;     //various percentage of the items
+int mediumItemPerc = 40;
+int largeItemPerc = 30;
+float alphaIncrement = 1.3;  //alpha increment of the bins cost
 
-ofstream inputWriter;
-ofstream gurobiData;
+//scenarios number
+#define AVERAGESCENARIONR 50
+int scenarioNr = 25;
+int testNr = 10;
 
-bool useMPPBDF = false, useMPPMIP = false, useTSP = false, useAV = false, useEVP = false;
+//files strem
+ofstream outStream;
+string outFileName;
+bool useFileOut = false;
+
+//solver configuration
 bool solveBDF = false, solveMIP = false;
+
+//bookers configuration
+bool useMPPBDF = false, useMPPMIP = false, useTSP = false, useAV = false, useEVP = false;
 bool matrixReadyMPPBDF = false, matrixReadyMPPMIP = false;
 
-struct binCompCheap {
-    bool operator() (const bin& i, const bin& j) const {
-        return (i.cost < j.cost);
-    }
-} cheapComp;
+//output config
+bool commandOutput = true;
+
+
 
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
+    cout << "Command Line config\n";
     for (int i = 0; i < argc; i++)
     {
         if ((string)argv[i] == "-mppbdf")
@@ -91,7 +89,6 @@ int main(int argc, char *argv[])
             useMPPMIP = true;
             cout <<"MPP with MIP will be used as booker.\n" ;
         }
-
         if ((string)argv[i] == "-tsp")
         {
             useTSP = true;
@@ -119,6 +116,50 @@ int main(int argc, char *argv[])
             solveMIP = true;
             cout <<"The VCSBPP solver is MIP.\n" ;
         }
+        if ((string)argv[i] == "-snr")
+        {
+            scenarioNr = atoi(argv[++i]);
+            cout <<"Number of the training scenarios = " << scenarioNr <<".\n" ;
+        }
+        if ((string)argv[i] == "-tnr")
+        {
+            testNr = atoi(argv[++i]);
+            cout <<"Number of the test intances = " << scenarioNr <<".\n" ;
+        }
+        if ((string)argv[i] == "-alp")
+        {
+            alphaIncrement = atof(argv[++i]);
+            cout <<"Alpha value = " << alphaIncrement  <<".\n" ;
+        }
+        if ((string)argv[i] == "-itnr")
+        {
+            itemMinNr = atoi(argv[++i]);
+            itemMaxNr = atoi(argv[++i]);
+            cout <<"Dimension of itemset in [" << itemMinNr << ";" << itemMaxNr <<"].\n" ;
+        }
+        if ((string)argv[i] == "-itvperc")
+        {
+            smallItemPerc = atoi(argv[++i]);
+            mediumItemPerc = atoi(argv[++i]);
+            largeItemPerc  = atoi(argv[++i]);
+            if (smallItemPerc + mediumItemPerc + largeItemPerc != 100)
+            {
+                cout <<"Errore nelle percentuali\n";
+                return 0;
+            }
+            cout <<"Percentage of items: " << itemMinNr << ";" << itemMaxNr <<"].\n" ;
+        }
+        if ((string)argv[i] == "-ofile")
+        {
+            outFileName = (string)argv[++i];
+            outStream.open(outFileName,std::ios_base::app);
+            if (!outStream.is_open())
+            {
+                cout << "Cannot find file " << outFileName << endl;
+                return -1;
+            }
+            cout <<"Opened the file  \"" << outFileName <<"\" in output.\n" ;
+        }
         
     }
     //initialization time for rand
@@ -127,10 +168,9 @@ int main(int argc, char *argv[])
     //initialization bin utility
     BinUtility *binUt = new BinUtility();
     binUt->setItemVolumes(SMALLITEMMINVOLUME,SMALLITEMMAXVOLUME,MEDIUMITEMMINVOLUME,MEDIUMITEMMAXVOLUME,LARGEITEMMINVOLUME,LARGEITEMMAXVOLUME);
-    binUt->setAlpha(ALPHAINCREMENT);
+    binUt->setAlpha(alphaIncrement);
 
     //bin comparator
-    bool commandOutput = true;
     struct binCostComparator {
         bool operator() (const bin& i, const bin& j) const {
             return (i.cost < j.cost);
@@ -146,7 +186,7 @@ int main(int argc, char *argv[])
     vector<double> singleCost;
     vector<double> totalCost;
 
-    if (commandOutput) cout <<"Items number:\t["<<ITEMSMIN<<";"<<ITEMSMAX<<"]\nTrain number:\t" << TRAINNR << "\nTest number:\t"<<TESTNR <<"\n\n";
+    cout <<"Items number:\t["<<itemMinNr<<";"<<itemMaxNr<<"]\nTrain number:\t" << scenarioNr << "\nTest number:\t"<<testNr <<"\n\n";
 
     vector<bin> smallBins;
     vector<bin> mediumBins;
@@ -155,39 +195,39 @@ int main(int argc, char *argv[])
     binSet emptySet;
 
     //part to estimate the average volume... I have to remove it
-    if (commandOutput) cout <<"Calculating average volume...\n" ;
+    cout <<"Calculating average volume...\n" ;
     int averageVolume = 0;
     for(int a = 0; a < AVERAGESCENARIONR; a++)
     {
-        items = binUt->itemsInstanceGenerator(ITEMSMIN, ITEMSMAX, SMALLITEMPERC, MEDIUMITEMPERC, LARGEBINPERC);
+        items = binUt->itemsInstanceGenerator(itemMinNr, itemMaxNr, smallItemPerc, mediumItemPerc, largeItemPerc);
         for (int b = 0; b < items.size(); b++)
             averageVolume += items.at(b).weight;
     }
     averageVolume /= AVERAGESCENARIONR;
 
-    if (commandOutput) cout <<"The average volume is "<< averageVolume <<"\n" ;
+    cout <<"The average volume is "<< averageVolume <<"\n" ;
 
     //CREATING THE SCENARIOS
-    if (commandOutput) cout <<"Creating the training scenarios...\n" ;
+    cout <<"Creating the training scenarios...\n" ;
     vector< vector< item > > scenarioItemSets;
     vector< vector< bin > > scenarioBinSets;
 
-    for (int i = 0; i < TRAINNR; i++)
+    for (int i = 0; i < scenarioNr; i++)
     {
 
-        scenarioItemSets.push_back(binUt->itemsInstanceGenerator(ITEMSMIN, ITEMSMAX, SMALLITEMPERC, MEDIUMITEMPERC, LARGEBINPERC));
+        scenarioItemSets.push_back(binUt->itemsInstanceGenerator(itemMinNr, itemMaxNr, smallItemPerc, mediumItemPerc, largeItemPerc));
         scenarioBinSets.push_back(binUt->binsBookerApplicator(emptySet, binUt->binsInstanceGenerator(averageVolume, SMALLBINVOLUME), binUt->binsInstanceGenerator(averageVolume, MEDIUMBINVOLUME), binUt->binsInstanceGenerator(averageVolume, LARGEBINVOLUME)));
     }
     VCSBPPSolver *VCSBPP;
     //intialization VCSBPP solvers
     if (solveBDF)
     {
-        if (commandOutput) cout <<"Initialization of A-BDF, the VCSBPP solver...\n" ;
+        cout <<"Initialization of A-BDF, the VCSBPP solver...\n" ;
         VCSBPP = new ABDF();
         VCSBPP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
     }else
     {
-        if (commandOutput) cout <<"Initialization of MIP VCSBPP solver...\n" ;
+        cout <<"Initialization of MIP VCSBPP solver...\n" ;
         VCSBPP = new MIPVSCBPPSolver(3.0);
         VCSBPP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
     }
@@ -201,21 +241,21 @@ int main(int argc, char *argv[])
     //MPP A-BDF
     if(useMPPBDF)
     {
-        if (commandOutput) cout <<"Initialization of MPP A-BDF booker...\n" ;
+        cout <<"Initialization of MPP A-BDF booker...\n" ;
         VCSBPPSolver *trainingSolver = new ABDF();
         trainingSolver->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
         MPPBooker *mppSolverABDF = new MPPBooker(smallBins.size(),mediumBins.size(),largeBins.size());
         mppSolverABDF->setVCSBPPSolver(trainingSolver);
         mppSolverABDF->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-        mppSolverABDF->setAlpha(ALPHAINCREMENT);
+        mppSolverABDF->setAlpha(alphaIncrement);
 
         if (matrixReadyMPPBDF)
         {
-            if (commandOutput) cout <<"Using the EBM matrix in file X...\n" ;
+            cout <<"Using the EBM matrix in file X...\n" ;
 
         }else
         {
-            if (commandOutput) cout << "Training of th EBM matrix...\n" ;
+            cout << "Training of th EBM matrix...\n" ;
             mppSolverABDF->training(scenarioBinSets,scenarioItemSets);
 
         }
@@ -227,14 +267,14 @@ int main(int argc, char *argv[])
         totalCost.push_back(0);
         singleCost.push_back(0);
 
-        if (commandOutput) cout << "Training of th EBM matrix complete!\n" ;
+        cout << "Training of th EBM matrix complete!\n" ;
 
     }
 
     //MPP MIP
     if(useMPPMIP)
         {
-        if (commandOutput) cout <<"Initialization of MPP MIP booker...\n" ;
+        cout <<"Initialization of MPP MIP booker...\n" ;
         MIPVSCBPPSolver *trainingSolverMIP = new MIPVSCBPPSolver();
         trainingSolverMIP->setTimeLimit(2.0);
         trainingSolverMIP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
@@ -242,15 +282,15 @@ int main(int argc, char *argv[])
         MPPBooker *mppSolverMIP = new MPPBooker(smallBins.size(),mediumBins.size(),largeBins.size());
         mppSolverMIP->setVCSBPPSolver(trainingSolverMIP);
         mppSolverMIP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
-        mppSolverMIP->setAlpha(ALPHAINCREMENT);
+        mppSolverMIP->setAlpha(alphaIncrement);
 
         if (matrixReadyMPPMIP)
         {
-            if (commandOutput) cout <<"Using the EBM matrix in file X...\n" ;
+            cout <<"Using the EBM matrix in file X...\n" ;
 
         }else
         {
-            if (commandOutput) cout << "Training of th EBM matrix...\n" ;
+            cout << "Training of th EBM matrix...\n" ;
             mppSolverMIP->training(scenarioBinSets,scenarioItemSets);
 
         }
@@ -261,15 +301,15 @@ int main(int argc, char *argv[])
         totExtraBins.push_back(emptySet);
         totalCost.push_back(0);
         singleCost.push_back(0);
-        if (commandOutput) cout << "Training of th EBM matrix complete!\n" ;
+        cout << "Training of th EBM matrix complete!\n" ;
     }
 
     //2SP
     if (useTSP)
         {
-        if (commandOutput) cout <<"Initialization of 2SP boker...\n" ;
+        cout <<"Initialization of 2SP boker...\n" ;
         TSPBooker *stochasticBooker = new TSPBooker();
-        stochasticBooker->setAlpha(ALPHAINCREMENT);
+        stochasticBooker->setAlpha(alphaIncrement);
         stochasticBooker->setTimeLimit(20.0);
         stochasticBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
         stochasticBooker->setScenarios(scenarioItemSets);
@@ -285,7 +325,7 @@ int main(int argc, char *argv[])
     //average
     if(useAV)
         {
-        if (commandOutput) cout <<"Initialization of average boker...\n" ;
+        cout <<"Initialization of average boker...\n" ;
         AverageBooker *avBooker = new AverageBooker();
         avBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
         avBooker->setScenarios(scenarioItemSets);
@@ -301,7 +341,7 @@ int main(int argc, char *argv[])
     //EVG
     if(useEVP)
         {
-        if (commandOutput) cout <<"Initialization of EVP boker...\n" ;
+        cout <<"Initialization of EVP boker...\n" ;
         EVPBooker *evpSolution = new EVPBooker();
         evpSolution->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
         evpSolution->setScenarios(scenarioItemSets);
@@ -316,13 +356,13 @@ int main(int argc, char *argv[])
     }
 
     //**************************************TEST PHASE*************************************************************//
-    if (commandOutput) cout <<"\nStart the comparations. \n" ;
+    cout <<"\nStart the comparations. \n" ;
 
-    for(int a = 0; a < TESTNR  ; a++)
+    for(int a = 0; a < testNr  ; a++)
     {
         if (commandOutput)cout << "\nTest nr:" << a + 1 << "\n";
         //----------------------PLANNING PHASE(FIRST STAGE)-------------------------------------//
-        if (commandOutput) cout <<"Start of the planning phase. \n" ;
+        cout <<"Start of the planning phase. \n" ;
 
         //bin set creation
         smallBins = binUt->binsInstanceGenerator(averageVolume, SMALLBINVOLUME);
@@ -340,11 +380,11 @@ int main(int argc, char *argv[])
 
         }
         //Item Set Generator
-        items = binUt->itemsInstanceGenerator(ITEMSMIN, ITEMSMAX, SMALLITEMPERC, MEDIUMITEMPERC, LARGEBINPERC);
+        items = binUt->itemsInstanceGenerator(itemMinNr, itemMaxNr, smallItemPerc, mediumItemPerc, largeItemPerc);
         sort(items.begin(), items.end());
 
         //----------------------OPERARIVE PHASE(SECOND STAGE)-------------------------------------//
-        if (commandOutput) cout <<"Start of the operative phase. \n" ;
+        cout <<"Start of the operative phase. \n" ;
 
         for(int i = 0; i < totalCost.size(); i++)
         {
@@ -384,14 +424,14 @@ int main(int argc, char *argv[])
         cout<<endl;
         /*
         inputWriter     << std::fixed << std::setw( 5 )  << std::setprecision(3)  << std::setfill( '0' )
-                    << ALPHAINCREMENT  << "\t" << (PERCVOLUME) << "\t" << EBMcost << "\t" << averageCost << "\t"<< stochasticCost << "\n";/*
+                    << alphaIncrement  << "\t" << (PERCVOLUME) << "\t" << EBMcost << "\t" << averageCost << "\t"<< stochasticCost << "\n";/*
             << EMBTotalExtra.small << "\t" << EMBTotalExtra.medium << "\t" << EMBTotalExtra.large << "\t"
             << averageTotalExtra.small << "\t" << averageTotalExtra.medium << "\t" << averageTotalExtra.large << "\n" ;*/
 
 
     }
 
-    inputWriter.close();
+    outStream.close();
 
 /*
     double gurobiCost = 0, totGurobi = 0, EBMCost = 0;
@@ -406,7 +446,7 @@ int main(int argc, char *argv[])
         sort(mediumBins.begin(), mediumBins.end(), cheapComp);
         sort(largeBins.begin(), largeBins.end(), cheapComp);
 
-        items = binUt->itemsInstanceGenerator(ITEMSMIN, ITEMSMAX, SMALLITEMPERC, MEDIUMITEMPERC, LARGEBINPERC);
+        items = binUt->itemsInstanceGenerator(itemMinNr, itemMaxNr, smallItemPerc, mediumItemPerc, largeItemPerc);
 
         binSet BDFBins = VCSBPP->solveModel(items, binUt->binsBookerApplicator(emptySet, smallBins, mediumBins, largeBins));
         binSet gurobiBins = VCSBPP->solveModel(items, binUt->binsBookerApplicator(emptySet, smallBins, mediumBins, largeBins));
