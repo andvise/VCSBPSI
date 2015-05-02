@@ -58,7 +58,8 @@ int testNr = 10;
 //files strem
 ofstream outStream;
 string outFileName;
-bool useFileOut = false;
+bool useFileOut = false, outFileExist = false;
+
 
 //solver configuration
 bool solveBDF = false, solveMIP = false;
@@ -151,6 +152,8 @@ int main(int argc, char *argv[])
         if ((string)argv[i] == "-ofile")
         {
             outFileName = (string)argv[++i];
+            if (ifstream(outFileName))
+                outFileExist = true;
             outStream.open(outFileName,ios_base::app);
             useFileOut = true;
             if (!outStream.is_open())
@@ -160,6 +163,7 @@ int main(int argc, char *argv[])
             }
             cout <<"Opened the file  \"" << outFileName <<"\" in output.\n" ;
         }
+
         
     }
     //initialization bin utility
@@ -307,7 +311,7 @@ int main(int argc, char *argv[])
         cout <<"Initialization of 2SP boker...\n" ;
         TSPBooker *stochasticBooker = new TSPBooker();
         stochasticBooker->setAlpha(alphaIncrement);
-        stochasticBooker->setTimeLimit(20.0);
+        stochasticBooker->setTimeLimit(5.0);
         stochasticBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
         stochasticBooker->setScenarios(scenarioItemSets);
         bookers.push_back(stochasticBooker);
@@ -354,13 +358,17 @@ int main(int argc, char *argv[])
 
     //**************************************TEST PHASE*************************************************************//
     cout <<"\nStart the comparations. \n" ;
-    if (useFileOut)
+    if(!outFileExist)
     {
-        outStream << "Alpha;Optimal Book;";
-        for(int i = 0; i < totalCost.size(); i++)
+        if (useFileOut)
         {
-            outStream << bookerNames.at(i) << " Cost;" << bookerNames.at(i) << " S Book;" << bookerNames.at(i) << " M  Book;" << bookerNames.at(i) << " L Book;"
-                      << bookerNames.at(i) << " S Extra;" << bookerNames.at(i) << " M Extra;" << bookerNames.at(i) << " L Extra;" << bookerNames.at(i) << " Quality;";
+            outStream << "Alpha;Optimal Book;";
+            for(int i = 0; i < totalCost.size(); i++)
+            {
+                outStream << bookerNames.at(i) << " Cost;" << bookerNames.at(i) << " S Book;" << bookerNames.at(i) << " M  Book;" << bookerNames.at(i) << " L Book;"
+                          << bookerNames.at(i) << " S Extra;" << bookerNames.at(i) << " M Extra;" << bookerNames.at(i) << " L Extra;" << bookerNames.at(i) << " Quality;";
+            }
+            outStream << "\n";
         }
     }
     for(int a = 0; a < testNr  ; a++)
@@ -422,7 +430,6 @@ int main(int argc, char *argv[])
         cout<<endl;
         for(int i = 0; i < totalCost.size(); i++)
         {
-            bookedSets.at(i) = bookers.at(i)->bookBins(binUt->binsBookerApplicator(emptySet, smallBins, mediumBins, largeBins));
             cout << fixed << setw( 5 )  << setprecision(3)  << setfill( '0' ) << totalCost.at(i) << "\t\t";
         }
         cout<<"\nExtra Bins:\n";
@@ -437,7 +444,7 @@ int main(int argc, char *argv[])
 
         if (useFileOut)
         {
-            outStream << alphaIncrement << ";" << perfectBook <<";";
+            outStream  << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << alphaIncrement << ";" << perfectBook <<";";
             for(int i = 0; i < totalCost.size(); i++)
             {
                 outStream << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << singleCost.at(i) << ";";

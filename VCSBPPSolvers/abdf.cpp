@@ -70,7 +70,32 @@ binSet ABDF::solveModel(std::vector<item> items, std::vector<bin> bins)
         //cout <<"item "<< items.at(i).code << " nel bin " << bookedBins.at(bookedBins.size()-1).code << " con il volume rimanente "<< bookedBins.at(bookedBins.size()-1).volumeRemaining<< "\n" ;
         sort(bookedBins.begin(), bookedBins.end(), upComp);
     }
+    // adapted part
+    for (int i = 0; i< bookedBins.size();i++)
+    {
+        for (int j = 0; j < bins.size(); j++)
+        {
+            if (((bookedBins.at(i).volume - bookedBins.at(i).volumeRemaning) < bins.at(j).volume) && ( bookedBins.at(i).cost > bins.at(j).cost))
+            {
+                if (bookedBins.at(i).volume == smallBinVolume)
+                    extra.small--;
+                if (bookedBins.at(i).volume == mediumBinVolume)
+                    extra.medium--;
+                if (bookedBins.at(i).volume == largeBinVolume)
+                    extra.large--;
 
+                if (bins.at(j).volume == smallBinVolume)
+                    extra.small++;
+                if (bins.at(j).volume == mediumBinVolume)
+                    extra.medium++;
+                if (bins.at(j).volume == largeBinVolume)
+                    extra.large++;
+
+                bins.erase(j);
+            }
+
+        }
+    }
     // cout<<"Il valore dell'bdf è  "<< extra.small<< ","<< extra.medium<< " "<< extra.large<< "\n";
     return extra;
 }
