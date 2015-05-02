@@ -7,7 +7,12 @@ TSPBooker::TSPBooker()
 void TSPBooker::setTimeLimit(double newTimeLimit)
 {
     timeLimit = newTimeLimit;
+}
 
+void TSPBooker::setOutFile(const string & fileName)
+{
+    gapFile.open(fileName, ios_base::app);
+    useOutFile = true;
 }
 
 void TSPBooker::setScenarios(vector< vector <item> > newScenarioItems)
@@ -109,6 +114,6 @@ binSet TSPBooker::bookBins(std::vector<bin> bins)
                 output.large++;
         }
     }
-    //inputWriter << model.get(GRB_DoubleAttr_MIPGap) <<"\t";
+    if (useOutFile) gapFile << model.get(GRB_DoubleAttr_MIPGap) <<"\n";
     return output;
 }
