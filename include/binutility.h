@@ -1,5 +1,6 @@
 #ifndef BINUTILITY_H
 #define BINUTILITY_H
+#include <time.h>
 #include <vector>
 #include "include/structDef.h"
 

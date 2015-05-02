@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <math.h>
 #include <stdio.h>
-#include <time.h>
 #include <cstring>
 #include <iomanip>
 #include <limits>
@@ -152,7 +151,8 @@ int main(int argc, char *argv[])
         if ((string)argv[i] == "-ofile")
         {
             outFileName = (string)argv[++i];
-            outStream.open(outFileName,std::ios_base::app);
+            outStream.open(outFileName,ios_base::app);
+            useFileOut = true;
             if (!outStream.is_open())
             {
                 cout << "Cannot find file " << outFileName << endl;
@@ -162,9 +162,6 @@ int main(int argc, char *argv[])
         }
         
     }
-    //initialization time for rand
-    srand(time(NULL));
-
     //initialization bin utility
     BinUtility *binUt = new BinUtility();
     binUt->setItemVolumes(SMALLITEMMINVOLUME,SMALLITEMMAXVOLUME,MEDIUMITEMMINVOLUME,MEDIUMITEMMAXVOLUME,LARGEITEMMINVOLUME,LARGEITEMMAXVOLUME);
@@ -357,7 +354,15 @@ int main(int argc, char *argv[])
 
     //**************************************TEST PHASE*************************************************************//
     cout <<"\nStart the comparations. \n" ;
-
+    if (useFileOut)
+    {
+        outStream << "Alpha;Optimal Book;";
+        for(int i = 0; i < totalCost.size(); i++)
+        {
+            outStream << bookerNames.at(i) << " Cost;" << bookerNames.at(i) << " S Book;" << bookerNames.at(i) << " M  Book;" << bookerNames.at(i) << " L Book;"
+                      << bookerNames.at(i) << " S Extra;" << bookerNames.at(i) << " M Extra;" << bookerNames.at(i) << " L Extra;" << bookerNames.at(i) << " Quality;";
+        }
+    }
     for(int a = 0; a < testNr  ; a++)
     {
         if (commandOutput)cout << "\nTest nr:" << a + 1 << "\n";
@@ -396,6 +401,13 @@ int main(int argc, char *argv[])
             singleCost.at(i) = binUt->costEvaluator(bookedSets.at(i), extraSets.at(i), smallBins, mediumBins, largeBins);
             totalCost.at(i) += singleCost.at(i);
         }
+        binSet totalBinsNeed;
+        totalBinsNeed.small = extraSets.at(0).small + bookedSets.at(0).small;
+        totalBinsNeed.medium = extraSets.at(0).medium + bookedSets.at(0).medium;
+        totalBinsNeed.large = extraSets.at(0).large + bookedSets.at(0).large;
+
+        int perfectBook = binUt->costEvaluator(totalBinsNeed, emptySet, smallBins, mediumBins, largeBins);
+
         cout<<"Cost:\n";
         for(int i = 0; i < totalCost.size(); i++)
             cout<<    bookerNames.at(i) <<"\t\t";
@@ -422,53 +434,20 @@ int main(int argc, char *argv[])
             cout << "(" << totExtraBins.at(i).small << "," << totExtraBins.at(i).medium << "," << totExtraBins.at(i).large << ")\t\t";
         }
         cout<<endl;
-        /*
-        inputWriter     << std::fixed << std::setw( 5 )  << std::setprecision(3)  << std::setfill( '0' )
-                    << alphaIncrement  << "\t" << (PERCVOLUME) << "\t" << EBMcost << "\t" << averageCost << "\t"<< stochasticCost << "\n";/*
-            << EMBTotalExtra.small << "\t" << EMBTotalExtra.medium << "\t" << EMBTotalExtra.large << "\t"
-            << averageTotalExtra.small << "\t" << averageTotalExtra.medium << "\t" << averageTotalExtra.large << "\n" ;*/
 
-
+        if (useFileOut)
+        {
+            outStream << alphaIncrement << ";" << perfectBook <<";";
+            for(int i = 0; i < totalCost.size(); i++)
+            {
+                outStream << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << singleCost.at(i) << ";";
+                outStream << bookedSets.at(i).small << ";" << bookedSets.at(i).medium << ";" << bookedSets.at(i).large << ";"
+                          << extraSets.at(i).small << ";" << extraSets.at(i).medium << ";" << extraSets.at(i).large << ";" << singleCost.at(i) / perfectBook << ";";
+            }
+            outStream << "\n";
+        }
     }
 
     outStream.close();
-
-/*
-    double gurobiCost = 0, totGurobi = 0, EBMCost = 0;
-    inputWriter.open("/home/andrea/VCSBPSI/performanceBDF_Gurobi.txt");
-
-    for (int i = 0; i < 0; i++)
-    {
-        smallBins = binUt->binsInstanceGenerator(averageVolume, SMALLBINVOLUME);
-        mediumBins = binUt->binsInstanceGenerator(averageVolume, MEDIUMBINVOLUME);
-        largeBins = binUt->binsInstanceGenerator(averageVolume, LARGEBINVOLUME);
-        sort(smallBins.begin(), smallBins.end(), cheapComp);
-        sort(mediumBins.begin(), mediumBins.end(), cheapComp);
-        sort(largeBins.begin(), largeBins.end(), cheapComp);
-
-        items = binUt->itemsInstanceGenerator(itemMinNr, itemMaxNr, smallItemPerc, mediumItemPerc, largeItemPerc);
-
-        binSet BDFBins = VCSBPP->solveModel(items, binUt->binsBookerApplicator(emptySet, smallBins, mediumBins, largeBins));
-        binSet gurobiBins = VCSBPP->solveModel(items, binUt->binsBookerApplicator(emptySet, smallBins, mediumBins, largeBins));
-        averageVolume = 0;
-        for (int b = 0; b < items.size(); b++)
-            averageVolume += items.at(b).weight;
-
-        int volumeUsedGurobi = gurobiBins.small * SMALLBINVOLUME + gurobiBins.medium * MEDIUMBINVOLUME + gurobiBins.large * LARGEBINVOLUME;
-
-        int volumeUsedBDF = BDFBins.small * SMALLBINVOLUME + BDFBins.medium * MEDIUMBINVOLUME + BDFBins.large * LARGEBINVOLUME;
-
-        gurobiCost     = binUt->costEvaluator(gurobiBins, emptySet, smallBins, mediumBins, largeBins);
-        EBMCost     = binUt->costEvaluator(BDFBins, emptySet, smallBins, mediumBins, largeBins);
-        inputWriter     << std::fixed << std::setw( 6 )  << std::setprecision(2)  << std::setfill( '0' ) << gurobiCost <<"\t"
-                        << gurobiBins.small <<"\t" << gurobiBins.medium <<"\t" << gurobiBins.large <<"\t" << volumeUsedGurobi << "\t"
-                        << EBMCost<< "\t" << BDFBins.small <<"\t" << BDFBins.medium <<"\t" << BDFBins.large << " \t" << volumeUsedBDF <<" \t" << averageVolume << "\n";
-
-        totEBM += EBMcost;
-        totGurobi *= gurobiCost;
-
-    }
-
-    inputWriter.close();*/
     return 0;
 }

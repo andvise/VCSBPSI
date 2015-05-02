@@ -4,6 +4,10 @@ using namespace std;
 
 BinUtility::BinUtility()
 {
+
+    //initialization time for rand
+    srand(time(NULL));
+
 }
 
 std::vector<bin> BinUtility::binsBookerApplicator(binSet bookedBins, std::vector<bin> smallBins, std::vector<bin> mediumBins, std::vector<bin> largeBins)
@@ -92,29 +96,28 @@ vector<item> BinUtility::itemsInstanceGenerator(int minNrItems, int maxNrItems, 
         return instance;
     }
 
-    int itemsNr = minNrItems + rand() % (maxNrItems - minNrItems) + 1;
+    int itemsNr = minNrItems + rand() % (maxNrItems - minNrItems + 1);
 
-    for (int i = 0; i < itemsNr * percSmall / 100.0; i++)
+    for (int i = 0; i < itemsNr * percSmall / 100.0 - 0.333; i++)
     {
         temp.code = 1000 + i;
-        temp.weight = smallItemMinVolume + rand() % (smallItemMaxVolume - smallItemMinVolume);
+        temp.weight = smallItemMinVolume + rand() % (smallItemMaxVolume - smallItemMinVolume + 1);
         instance.push_back(temp);
     }
 
-    for (int i = 0; i < itemsNr * percMedium / 100.0; i++)
+    for (int i = 0; i < itemsNr * percMedium / 100.0 - 0.3333; i++)
     {
         temp.code = 2000 + i;
-        temp.weight = mediumItemMinVolume + rand() % (mediumItemMaxVolume - mediumItemMinVolume);
+        temp.weight = mediumItemMinVolume + rand() % (mediumItemMaxVolume - mediumItemMinVolume + 1);
         instance.push_back(temp);
     }
-
-    for (int i = 0; i < itemsNr * percBig / 100.0; i++)
+    int lastItems = itemsNr - instance.size();
+    for (int i = 0; i < lastItems ; i++)
     {
         temp.code = 3000 + i;
-        temp.weight = largeItemMinVolume + rand() % (largeItemMaxVolume - largeItemMinVolume);
+        temp.weight = largeItemMinVolume + rand() % (largeItemMaxVolume - largeItemMinVolume + 1);
         instance.push_back(temp);
     }
-
     return instance;
 }
 void BinUtility::setItemVolumes(int newSmallItemMinVolume, int newSmallItemMaxVolume,int newMediumItemMinVolume, int newMediumItemMaxVolume,int newLargeItemMinVolume, int newLargeItemMaxVolume)
