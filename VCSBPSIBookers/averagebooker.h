@@ -1,6 +1,6 @@
 #ifndef AVERAGEBOOKER_H
 #define AVERAGEBOOKER_H
-#include "vcsbpsibooker.h"
+#include "vcsbpsibooker.h" 
 
 class AverageBooker : public VCSBPSIBooker
 {

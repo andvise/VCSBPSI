@@ -24,6 +24,7 @@
 #include "VCSBPSIBookers/mppbooker.h"
 #include "VCSBPSIBookers/averagebooker.h"
 #include "VCSBPSIBookers/evpbooker.h"
+#include "VCSBPSIBookers/basbooker.h"
 
 using namespace std;
 
@@ -274,7 +275,7 @@ int main(int argc, char *argv[])
 
     //MPP MIP
     if(useMPPMIP)
-        {
+    {
         cout <<"Initialization of MPP MIP booker...\n" ;
         MIPVSCBPPSolver *trainingSolverMIP = new MIPVSCBPPSolver();
         trainingSolverMIP->setTimeLimit(2.0);
@@ -307,7 +308,7 @@ int main(int argc, char *argv[])
 
     //2SP
     if (useTSP)
-        {
+    {
         cout <<"Initialization of 2SP boker...\n" ;
         TSPBooker *stochasticBooker = new TSPBooker();
         stochasticBooker->setAlpha(alphaIncrement);
@@ -325,10 +326,11 @@ int main(int argc, char *argv[])
 
     //average
     if(useAV)
-        {
+    {
         cout <<"Initialization of average boker...\n" ;
         AverageBooker *avBooker = new AverageBooker();
         avBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        avBooker->setAlpha(alphaIncrement);
         avBooker->setScenarios(scenarioItemSets);
         bookers.push_back(avBooker);
         bookerNames.push_back("AVG");
@@ -341,10 +343,11 @@ int main(int argc, char *argv[])
 
     //EVG
     if(useEVP)
-        {
+    {
         cout <<"Initialization of EVP boker...\n" ;
         EVPBooker *evpSolution = new EVPBooker();
         evpSolution->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        evpSolution->setAlpha(alphaIncrement);
         evpSolution->setScenarios(scenarioItemSets);
         evpSolution->setTimeLimit(10.0);
         bookers.push_back(evpSolution);
@@ -356,13 +359,31 @@ int main(int argc, char *argv[])
         singleCost.push_back(0);
     }
 
+    if(useAV)
+    {
+        cout <<"Initialization of BAS boker...\n" ;
+        BASBooker *basBooker = new BASBooker();
+        basBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        basBooker->setAlpha(alphaIncrement);
+        VCSBPPSolver *trainingSolver = new ABDF();
+        trainingSolver->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+        basBooker->setVCSBPPSolver(trainingSolver);
+        basBooker->training(scenarioBinSets,scenarioItemSets);
+        bookers.push_back(basBooker);
+        bookerNames.push_back("BAS");
+        bookedSets.push_back(emptySet);
+        extraSets.push_back(emptySet);
+        totExtraBins.push_back(emptySet);
+        totalCost.push_back(0);
+        singleCost.push_back(0);
+    }
     //**************************************TEST PHASE*************************************************************//
     cout <<"\nStart the comparations. \n" ;
     if(!outFileExist)
     {
         if (useFileOut)
         {
-            outStream << "Alpha;Optimal Book;";
+            outStream << "ItemSet Volume;Alpha;Optimal Book;";
             for(int i = 0; i < totalCost.size(); i++)
             {
                 outStream << bookerNames.at(i) << " Cost;" << bookerNames.at(i) << " S Book;" << bookerNames.at(i) << " M  Book;" << bookerNames.at(i) << " L Book;"
@@ -444,7 +465,10 @@ int main(int argc, char *argv[])
 
         if (useFileOut)
         {
-            outStream  << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << alphaIncrement << ";" << perfectBook <<";";
+            int itemsetVolume = 0;
+            for (int b = 0; b < items.size(); b++)
+                itemsetVolume += items.at(b).weight;
+            outStream << itemsetVolume << ";" << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << alphaIncrement << ";" << perfectBook <<";";
             for(int i = 0; i < totalCost.size(); i++)
             {
                 outStream << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << singleCost.at(i) << ";";

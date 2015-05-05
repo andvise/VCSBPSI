@@ -74,6 +74,7 @@ void AverageBooker::setVolumePerc(double newVolumePerc)
 
 void AverageBooker::setScenarios(vector <vector<item>> scenarioItemSets)
 {
+    binUt->setAlpha(alpha);
     averageVolume = 0;
     for(int a = 0; a < scenarioItemSets.size() ; a++)
     {
