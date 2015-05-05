@@ -66,8 +66,9 @@ bool useFileOut = false, outFileExist = false;
 bool solveBDF = false, solveMIP = false;
 
 //bookers configuration
-bool useMPPBDF = false, useMPPMIP = false, useTSP = false, useAV = false, useEVP = false;
-bool matrixReadyMPPBDF = false, matrixReadyMPPMIP = false;
+bool useMPPBDF = false, useMPPMIP = false, useTSP = false, useAV = false, useEVP = false, useBAS = false;
+bool matrixReadyMPPBDF = false, matrixReadyMPPMIP = false; string mFileNameMPPBDF, mFileNameMPPMIP;
+
 
 //output config
 bool commandOutput = true;
@@ -104,6 +105,11 @@ int main(int argc, char *argv[])
         {
             useEVP = true;
             cout <<"EVP will be used as booker.\n" ;
+        }
+        if ((string)argv[i] == "-bas")
+        {
+            useBAS = true;
+            cout <<"BAS will be used as booker.\n" ;
         }
         if ((string)argv[i] == "-bdf")
         {
@@ -163,6 +169,18 @@ int main(int argc, char *argv[])
                 return -1;
             }
             cout <<"Opened the file  \"" << outFileName <<"\" in output.\n" ;
+        }
+        if ((string)argv[i] == "-mppbdffile")
+        {
+            mFileNameMPPBDF = (string)argv[++i];
+            matrixReadyMPPBDF = true;
+            cout <<"Matrix for BDF ready in  \"" << mFileNameMPPBDF <<"\".\n" ;
+        }
+        if ((string)argv[i] == "-mppmipfile")
+        {
+            mFileNameMPPMIP = (string)argv[++i];
+            matrixReadyMPPMIP = true;
+            cout <<"Matrix for MIP ready in  \"" << mFileNameMPPMIP <<"\".\n" ;
         }
 
         
@@ -253,13 +271,14 @@ int main(int argc, char *argv[])
 
         if (matrixReadyMPPBDF)
         {
-            cout <<"Using the EBM matrix in file X...\n" ;
+            cout <<"Using the EBM matrix in file " << mFileNameMPPBDF<<".\n";
+            mppSolverABDF->matrixRead(mFileNameMPPBDF);
 
         }else
         {
             cout << "Training of th EBM matrix...\n" ;
             mppSolverABDF->training(scenarioBinSets,scenarioItemSets);
-
+            mppSolverABDF->matrixPrint("EBMBDF.txt");
         }
         bookers.push_back(mppSolverABDF);
         bookerNames.push_back("MPP-B");
@@ -287,13 +306,14 @@ int main(int argc, char *argv[])
         mppSolverMIP->setAlpha(alphaIncrement);
 
         if (matrixReadyMPPMIP)
-        {
-            cout <<"Using the EBM matrix in file X...\n" ;
-
+        {            
+            cout <<"Using the EBM matrix in file " << mFileNameMPPMIP <<".\n";
+            mppSolverMIP->matrixRead(mFileNameMPPMIP);
         }else
         {
             cout << "Training of th EBM matrix...\n" ;
             mppSolverMIP->training(scenarioBinSets,scenarioItemSets);
+            mppSolverMIP->matrixPrint("EBMMIP.txt");
 
         }
         bookers.push_back(mppSolverMIP);
@@ -359,7 +379,7 @@ int main(int argc, char *argv[])
         singleCost.push_back(0);
     }
 
-    if(useAV)
+    if(useBAS)
     {
         cout <<"Initialization of BAS boker...\n" ;
         BASBooker *basBooker = new BASBooker();
@@ -377,13 +397,14 @@ int main(int argc, char *argv[])
         totalCost.push_back(0);
         singleCost.push_back(0);
     }
+
     //**************************************TEST PHASE*************************************************************//
     cout <<"\nStart the comparations. \n" ;
     if(!outFileExist)
     {
         if (useFileOut)
         {
-            outStream << "ItemSet Volume;Alpha;Optimal Book;";
+            outStream << "Train Scenario Nr; Test Nr;Percentage Small Item; Percentage Medium; Percentage Big;Alpha;;ItemSet Volume;Optimal Book;";
             for(int i = 0; i < totalCost.size(); i++)
             {
                 outStream << bookerNames.at(i) << " Cost;" << bookerNames.at(i) << " S Book;" << bookerNames.at(i) << " M  Book;" << bookerNames.at(i) << " L Book;"
@@ -468,7 +489,9 @@ int main(int argc, char *argv[])
             int itemsetVolume = 0;
             for (int b = 0; b < items.size(); b++)
                 itemsetVolume += items.at(b).weight;
-            outStream << itemsetVolume << ";" << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << alphaIncrement << ";" << perfectBook <<";";
+
+            outStream   << scenarioNr << ";" << testNr << ";" << smallItemPerc << ";" << mediumItemPerc << ";"<< largeItemPerc << ";"
+                        << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << alphaIncrement << ";;"  << itemsetVolume << ";" << perfectBook <<";";
             for(int i = 0; i < totalCost.size(); i++)
             {
                 outStream << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << singleCost.at(i) << ";";

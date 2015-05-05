@@ -135,7 +135,9 @@ void BASBooker::training(vector<vector<bin> > scenarioBins,vector<vector<item> >
             costUp += binUt->costEvaluator(bookSet, extraSet, smallBins, mediumBins, largeBins);
 
         }
+
         (costUp > costLow)? maxPerc= upPerc : minPerc = lowPerc;
+
     }
 
     volumePerc = (maxPerc + minPerc)/2;

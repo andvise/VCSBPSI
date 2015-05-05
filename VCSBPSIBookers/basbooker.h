@@ -7,7 +7,7 @@
 class BASBooker: public VCSBPSIBooker
 {
 private:
-    int iterationNr = 6;
+    int iterationNr = 10;
     int averageVolume;
     double volumePerc = 1.0;
     BinUtility *binUt;
