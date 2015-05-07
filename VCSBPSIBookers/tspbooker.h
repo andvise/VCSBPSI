@@ -3,6 +3,7 @@
 #include "vcsbpsibooker.h"
 #include "gurobi_c++.h"
 #include <fstream>
+#include <iomanip>      // std::setfill, std::setw
 
 class TSPBooker : public VCSBPSIBooker
 {

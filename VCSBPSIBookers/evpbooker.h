@@ -11,7 +11,7 @@ private:
     double timeLimit;
     std::vector <item> averageItemSet;
     int scenarioNr;
-    MIPVSCBPPSolver *solver;    
+    MIPVSCBPPSolver *solver;
 public:
     EVPBooker();
 

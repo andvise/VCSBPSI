@@ -14,6 +14,12 @@ void MIPVSCBPPSolver::setTimeLimit(double newTimeLimit)
     timeLimit = newTimeLimit;
 }
 
+void MIPVSCBPPSolver::setOutFile(const string & fileName)
+{
+    gapFile.open(fileName, ios_base::app);
+    useOutFile = true;
+}
+
 binSet MIPVSCBPPSolver::solveModel(std::vector<item> items, std::vector<bin> bins)
 {
 
@@ -69,6 +75,8 @@ binSet MIPVSCBPPSolver::solveModel(std::vector<item> items, std::vector<bin> bin
     output.small = 0;
     output.medium = 0;
     output.large = 0;
+
+    if (useOutFile) gapFile << std::fixed << std::setw( 4 )  << std::setprecision(4)  << std::setfill( '0' ) << model.get(GRB_DoubleAttr_MIPGap) <<"\n";
 
     for (i = 0; i < binSize ; i++)
     {

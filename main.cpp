@@ -61,14 +61,16 @@ ofstream outStream;
 string outFileName;
 bool useFileOut = false, outFileExist = false;
 
-
 //solver configuration
 bool solveBDF = false, solveMIP = false;
+double timeLimitMIP = 6.0; string gapFileNameMIP; bool useMIPGapFile = false;
 
 //bookers configuration
 bool useMPPBDF = false, useMPPMIP = false, useTSP = false, useAV = false, useEVP = false, useBAS = false;
+double timeLimitTSP = 20.0; string gapFileNameTSP; bool useTSPGapFile = false;
+double timeLimitEVP = 20.0;
+double percentageAV = 0.85;
 bool matrixReadyMPPBDF = false, matrixReadyMPPMIP = false; string mFileNameMPPBDF, mFileNameMPPMIP;
-
 
 //output config
 bool commandOutput = true;
@@ -93,16 +95,19 @@ int main(int argc, char *argv[])
         }
         if ((string)argv[i] == "-tsp")
         {
+            timeLimitTSP = atof(argv[++i]);
             useTSP = true;
             cout <<"2SP will be used as booker.\n" ;
         }
         if ((string)argv[i] == "-av")
         {
+            percentageAV = atof(argv[++i]);
             useAV = true;
             cout <<"AV will be used as booker.\n" ;
         }
         if ((string)argv[i] == "-evp")
         {
+            timeLimitEVP = atof(argv[++i]);
             useEVP = true;
             cout <<"EVP will be used as booker.\n" ;
         }
@@ -118,7 +123,8 @@ int main(int argc, char *argv[])
             cout <<"The VCSBPP solver is A-BDF.\n" ;
         }
         if ((string)argv[i] == "-mip")
-        {
+        {   
+            timeLimitMIP = atof(argv[++i]);
             solveBDF = false;
             solveMIP = true;
             cout <<"The VCSBPP solver is MIP.\n" ;
@@ -182,9 +188,22 @@ int main(int argc, char *argv[])
             matrixReadyMPPMIP = true;
             cout <<"Matrix for MIP ready in  \"" << mFileNameMPPMIP <<"\".\n" ;
         }
+        if ((string)argv[i] == "-gftsp")
+        {
+            gapFileNameTSP = (string)argv[++i];
+            useTSPGapFile = true;
+            cout <<"2SP will save the GAPS in  \"" << gapFileNameTSP <<"\".\n" ;
+        }
+        if ((string)argv[i] == "-gfmip")
+        {
+            gapFileNameMIP = (string)argv[++i];
+            useMIPGapFile = true;
+            cout <<"MIP will save the GAPS in  \"" << gapFileNameMIP <<"\".\n" ;
+        }
 
-        
+
     }
+
     //initialization bin utility
     BinUtility *binUt = new BinUtility();
     binUt->setItemVolumes(SMALLITEMMINVOLUME,SMALLITEMMAXVOLUME,MEDIUMITEMMINVOLUME,MEDIUMITEMMAXVOLUME,LARGEITEMMINVOLUME,LARGEITEMMAXVOLUME);
@@ -206,7 +225,7 @@ int main(int argc, char *argv[])
     vector<double> singleCost;
     vector<double> totalCost;
 
-    cout <<"Items number:\t["<<itemMinNr<<";"<<itemMaxNr<<"]\nTrain number:\t" << scenarioNr << "\nTest number:\t"<<testNr <<"\n\n";
+   // cout <<"Items number:\t["<<itemMinNr<<";"<<itemMaxNr<<"]\nTrain number:\t" << scenarioNr << "\nTest number:\t"<<testNr <<"\n\n";
 
     vector<bin> smallBins;
     vector<bin> mediumBins;
@@ -215,7 +234,7 @@ int main(int argc, char *argv[])
     binSet emptySet;
 
     //part to estimate the average volume... I have to remove it
-    cout <<"Calculating average volume...\n" ;
+    cout <<"\n\nCalculating average volume...\n" ;
     int averageVolume = 0;
     for(int a = 0; a < AVERAGESCENARIONR; a++)
     {
@@ -248,8 +267,9 @@ int main(int argc, char *argv[])
     }else
     {
         cout <<"Initialization of MIP VCSBPP solver...\n" ;
-        VCSBPP = new MIPVSCBPPSolver(3.0);
+        VCSBPP = new MIPVSCBPPSolver(timeLimitMIP);
         VCSBPP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
+
     }
 
     smallBins = binUt->binsInstanceGenerator(averageVolume, SMALLBINVOLUME);
@@ -297,7 +317,7 @@ int main(int argc, char *argv[])
     {
         cout <<"Initialization of MPP MIP booker...\n" ;
         MIPVSCBPPSolver *trainingSolverMIP = new MIPVSCBPPSolver();
-        trainingSolverMIP->setTimeLimit(2.0);
+        trainingSolverMIP->setTimeLimit(timeLimitMIP);
         trainingSolverMIP->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
 
         MPPBooker *mppSolverMIP = new MPPBooker(smallBins.size(),mediumBins.size(),largeBins.size());
@@ -332,9 +352,11 @@ int main(int argc, char *argv[])
         cout <<"Initialization of 2SP boker...\n" ;
         TSPBooker *stochasticBooker = new TSPBooker();
         stochasticBooker->setAlpha(alphaIncrement);
-        stochasticBooker->setTimeLimit(5.0);
+        stochasticBooker->setTimeLimit(timeLimitTSP);
         stochasticBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
         stochasticBooker->setScenarios(scenarioItemSets);
+        if (useTSPGapFile)
+            stochasticBooker->setOutFile(gapFileNameTSP);
         bookers.push_back(stochasticBooker);
         bookerNames.push_back("2SP");
         bookedSets.push_back(emptySet);
@@ -351,6 +373,7 @@ int main(int argc, char *argv[])
         AverageBooker *avBooker = new AverageBooker();
         avBooker->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
         avBooker->setAlpha(alphaIncrement);
+        avBooker->setVolumePerc(percentageAV);
         avBooker->setScenarios(scenarioItemSets);
         bookers.push_back(avBooker);
         bookerNames.push_back("AVG");
@@ -369,7 +392,7 @@ int main(int argc, char *argv[])
         evpSolution->setVolumes(SMALLBINVOLUME,MEDIUMBINVOLUME,LARGEBINVOLUME);
         evpSolution->setAlpha(alphaIncrement);
         evpSolution->setScenarios(scenarioItemSets);
-        evpSolution->setTimeLimit(10.0);
+        evpSolution->setTimeLimit(timeLimitEVP);
         bookers.push_back(evpSolution);
         bookerNames.push_back("EVP");
         bookedSets.push_back(emptySet);
@@ -408,7 +431,8 @@ int main(int argc, char *argv[])
             for(int i = 0; i < totalCost.size(); i++)
             {
                 outStream << bookerNames.at(i) << " Cost;" << bookerNames.at(i) << " S Book;" << bookerNames.at(i) << " M  Book;" << bookerNames.at(i) << " L Book;"
-                          << bookerNames.at(i) << " S Extra;" << bookerNames.at(i) << " M Extra;" << bookerNames.at(i) << " L Extra;" << bookerNames.at(i) << " Quality;";
+                          << bookerNames.at(i) << " S Extra;" << bookerNames.at(i) << " M Extra;" << bookerNames.at(i) << " L Extra;"
+                          << bookerNames.at(i) << " Booked Volume;" << bookerNames.at(i) << " Total Volume  ;"<< bookerNames.at(i) << " Quality;";
             }
             outStream << "\n";
         }
@@ -456,7 +480,7 @@ int main(int argc, char *argv[])
         totalBinsNeed.medium = extraSets.at(0).medium + bookedSets.at(0).medium;
         totalBinsNeed.large = extraSets.at(0).large + bookedSets.at(0).large;
 
-        int perfectBook = binUt->costEvaluator(totalBinsNeed, emptySet, smallBins, mediumBins, largeBins);
+        double perfectBook = binUt->costEvaluator(totalBinsNeed, emptySet, smallBins, mediumBins, largeBins);
 
         cout<<"Cost:\n";
         for(int i = 0; i < totalCost.size(); i++)
@@ -496,7 +520,10 @@ int main(int argc, char *argv[])
             {
                 outStream << fixed << setw(5)  << setprecision(3)  << setfill( '0' ) << singleCost.at(i) << ";";
                 outStream << bookedSets.at(i).small << ";" << bookedSets.at(i).medium << ";" << bookedSets.at(i).large << ";"
-                          << extraSets.at(i).small << ";" << extraSets.at(i).medium << ";" << extraSets.at(i).large << ";" << singleCost.at(i) / perfectBook << ";";
+                          << extraSets.at(i).small << ";" << extraSets.at(i).medium << ";" << extraSets.at(i).large << ";"
+                          << bookedSets.at(i).small * SMALLBINVOLUME +  bookedSets.at(i).medium * MEDIUMBINVOLUME +  bookedSets.at(i).large * LARGEBINVOLUME<< ";"
+                          << (bookedSets.at(i).small + extraSets.at(i).small) * SMALLBINVOLUME + (extraSets.at(i).medium + bookedSets.at(i).medium) * MEDIUMBINVOLUME + (extraSets.at(i).large + bookedSets.at(i).large) * LARGEBINVOLUME<< ";"
+                          << singleCost.at(i) / perfectBook << ";";
             }
             outStream << "\n";
         }
