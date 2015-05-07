@@ -114,6 +114,6 @@ binSet TSPBooker::bookBins(std::vector<bin> bins)
                 output.large++;
         }
     }
-    if (useOutFile) gapFile << std::fixed << std::setw( 4 )  << std::setprecision(4)  << std::setfill( '0' ) << model.get(GRB_DoubleAttr_MIPGap) <<"\n";
+    if (useOutFile) gapFile << std::fixed << std::setw( 4 )  << std::setprecision(4)  << std::setfill( '0' ) << model.get(GRB_DoubleAttr_MIPGap) <<endl;
     return output;
 }
